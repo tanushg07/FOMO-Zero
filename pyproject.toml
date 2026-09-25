@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fomo-zero"
+version = "0.1.0"
+description = "FOMO-Zero notice extraction persistence layer"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0,<3.0",
+    "SQLAlchemy>=2.0,<3.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0,<9.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["fomo_zero*"]
