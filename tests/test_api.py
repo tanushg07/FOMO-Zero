@@ -5,6 +5,7 @@ from docx import Document
 from fastapi.testclient import TestClient
 
 from fomo_zero.api import create_app
+from fomo_zero.ai.provider import NullProvider
 
 
 def pdf_bytes(text: str) -> bytes:
@@ -89,3 +90,14 @@ def test_file_size_limit(tmp_path):
         response = api.post("/api/notices", files={"file": ("notice.txt", b"too large notice", "text/plain")})
         assert response.status_code == 413
         assert response.json()["error"] == "file_too_large"
+
+
+def test_extraction_endpoint_updates_safe_provider_status(tmp_path, monkeypatch):
+    monkeypatch.setattr("fomo_zero.api.build_provider", lambda: NullProvider())
+    with client(tmp_path) as api:
+        created = api.post("/api/notices", json={"text": "The exam is on 2026-10-01."})
+        notice_id = created.json()["id"]
+        extracted = api.post(f"/api/notices/{notice_id}/extract")
+        assert extracted.status_code == 200
+        assert extracted.json()["processing_status"] == "needs_review"
+        assert extracted.json()["validation_status"] in {"Needs Review", "Blocked"}
