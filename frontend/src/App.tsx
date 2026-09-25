@@ -3,22 +3,21 @@ import { DashboardView } from './views/DashboardView';
 import { NoticeInput } from './views/NoticeInput';
 import { NoticeResultsView } from './views/NoticeResultsView';
 import { ReviewCenterView } from './views/ReviewCenterView';
-import type { NoticeResult } from './types';
 import { useQuery } from '@tanstack/react-query';
-
-const fetchNotices = async (): Promise<NoticeResult[]> => {
-  // Placeholder API call
-  // return fetch('/api/notices').then(res => res.json());
-  return [];
-};
+import { fetchNotice, fetchNotices } from './api';
 
 function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'input' | 'review' | 'result'>('dashboard');
-  const [selectedNotice] = useState<NoticeResult | null>(null);
+  const [selectedNoticeId, setSelectedNoticeId] = useState<string | null>(null);
 
   const { data: notices, isLoading, isError, error } = useQuery({
     queryKey: ['notices'],
     queryFn: fetchNotices,
+  });
+  const selectedNoticeQuery = useQuery({
+    queryKey: ['notice', selectedNoticeId],
+    queryFn: () => fetchNotice(selectedNoticeId as string),
+    enabled: selectedNoticeId !== null,
   });
 
   // Handle simple hash routing
@@ -27,6 +26,10 @@ function App() {
       const hash = window.location.hash.replace('#', '');
       if (hash === 'input') setCurrentView('input');
       else if (hash === 'review') setCurrentView('review');
+      else if (hash.startsWith('notice/')) {
+        setSelectedNoticeId(decodeURIComponent(hash.slice('notice/'.length)));
+        setCurrentView('result');
+      }
       else if (hash === 'dashboard' || !hash) setCurrentView('dashboard');
     };
     
@@ -59,21 +62,25 @@ function App() {
           </div>
         )}
         
-        {isError && (
+        {isError && currentView !== 'input' && (
           <div className="border border-red-500/50 bg-red-950/20 p-4 max-w-4xl mx-auto">
             <h3 className="text-red-400 font-mono text-xs uppercase mb-2">API Error</h3>
             <p className="font-mono text-sm text-zinc-300">{error?.message || 'Failed to fetch notices.'}</p>
           </div>
         )}
 
-        {!isLoading && !isError && (
-          <>
-            {currentView === 'dashboard' && <DashboardView notices={notices || []} />}
-            {currentView === 'input' && <NoticeInput />}
-            {currentView === 'review' && <ReviewCenterView data={notices || []} />}
-            {currentView === 'result' && selectedNotice && <NoticeResultsView data={selectedNotice} />}
-          </>
+        {!isLoading && !isError && currentView === 'dashboard' && <DashboardView notices={notices || []} />}
+        {!isLoading && !isError && currentView === 'review' && <ReviewCenterView data={notices || []} />}
+        {currentView === 'input' && <NoticeInput />}
+        {currentView === 'result' && selectedNoticeQuery.isLoading && (
+          <div className="max-w-4xl mx-auto text-sm font-mono text-zinc-500">LOADING NOTICE...</div>
         )}
+        {currentView === 'result' && selectedNoticeQuery.isError && (
+          <div className="max-w-4xl mx-auto border border-red-500/50 bg-red-950/20 p-4 text-sm text-red-300">
+            {selectedNoticeQuery.error.message}
+          </div>
+        )}
+        {currentView === 'result' && selectedNoticeQuery.data && <NoticeResultsView data={selectedNoticeQuery.data} />}
       </main>
     </div>
   );
