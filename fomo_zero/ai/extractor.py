@@ -87,6 +87,15 @@ class NoticeExtractor:
                 if not response.content.strip():
                     raise InvalidProviderResponse("Provider returned an empty response")
                 payload = json.loads(response.content)
+                payload.setdefault("metadata", {
+                    "provider_name": response.provider_name,
+                    "model_name": response.model_name,
+                    "extracted_at": datetime.now(UTC).isoformat(),
+                    "source_text_sha256": "pending",
+                    "attempt_count": attempt + 1,
+                })
+                _canonicalize_provider_payload(payload)
+                _normalize_provider_evidence_statuses(payload)
                 return response, ExtractionOutput.model_validate(payload), attempt + 1
             except (ProviderTimeout, ProviderRateLimit, InvalidProviderResponse) as exc:
                 last_error = exc
@@ -116,3 +125,49 @@ def _drop_blocked_claims(output: ExtractionOutput, report: GuardianReport) -> No
     output.actions = [a for a in output.actions if a.claim_id not in blocked]
     output.conditions = [c for c in output.conditions if c.claim_id not in blocked]
     output.uncertainties = [u for u in output.uncertainties if u.claim_id not in blocked]
+
+
+def _normalize_provider_evidence_statuses(payload: dict) -> None:
+    """Remove provider vocabulary differences before source alignment.
+
+    Evidence status is recalculated by ``normalize_extraction`` from the real
+    notice text, so provider-reported values are never trusted as validation.
+    """
+    collections = ["summary", "changes", "affected_groups", "deadlines", "actions", "conditions", "uncertainties"]
+    for collection in collections:
+        values = payload.get(collection, [])
+        if isinstance(values, dict):
+            values = [values]
+        if not isinstance(values, list):
+            continue
+        for claim in values:
+            if isinstance(claim, dict) and claim.get("evidence_status") not in {"aligned", "review_required", "blocked"}:
+                claim["evidence_status"] = "review_required"
+
+
+def _canonicalize_provider_payload(payload: dict) -> None:
+    """Map harmless provider aliases to the application's canonical fields."""
+    for group in payload.get("affected_groups", []) or []:
+        if isinstance(group, dict):
+            if "value" not in group and isinstance(group.get("group"), str):
+                group["value"] = group["group"]
+            if "value" not in group and isinstance(group.get("description"), str):
+                group["value"] = group["description"]
+            if "group_type" not in group:
+                group["group_type"] = group.get("type") or "unspecified"
+    for deadline in payload.get("deadlines", []) or []:
+        if isinstance(deadline, dict):
+            if "normalized_date" not in deadline and "date" in deadline:
+                deadline["normalized_date"] = deadline["date"]
+            if "description" not in deadline:
+                deadline["description"] = deadline.get("event") or "Deadline"
+            if "original_text" not in deadline:
+                deadline["original_text"] = deadline.get("evidence_text") or ""
+            deadline.setdefault("date_precision", "unknown")
+            deadline.setdefault("is_explicit", deadline.get("normalized_date") is not None)
+    for action in payload.get("actions", []) or []:
+        if isinstance(action, dict):
+            if "action_text" not in action and "description" in action:
+                action["action_text"] = action["description"]
+            action.setdefault("action_type", "unclear")
+            action.setdefault("mandatory_status", "unclear")
