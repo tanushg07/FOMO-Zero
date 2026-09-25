@@ -38,4 +38,4 @@ curl.exe -X POST http://127.0.0.1:8000/api/notices -F "file=@notice.pdf"
 The API supports `TXT`, `PDF`, and `DOCX`. PDF uploads with no or insufficient selectable text return `ocr_needed`; no OCR is attempted. The default input limit is 10 MiB.
 
 
-Video Link: https://drive.google.com/file/d/1An92dnR1HN2BznouUEYSQYktDbRqKG2i/view?usp=drive_link
+Video Link: https://drive.google.com/file/d/1u5Mi3F6sz_rSk-I1ys1trzZMojBrYNFY/view?usp=drive_link
