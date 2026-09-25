@@ -101,6 +101,12 @@ class ChangeRecord(NoticeChild, Base):
     evidence_text: Mapped[str] = mapped_column(Text, nullable=False)
     evidence_start: Mapped[Optional[int]] = mapped_column(Integer)
     evidence_end: Mapped[Optional[int]] = mapped_column(Integer)
+    previous_evidence_text: Mapped[Optional[str]] = mapped_column(Text)
+    previous_evidence_start: Mapped[Optional[int]] = mapped_column(Integer)
+    previous_evidence_end: Mapped[Optional[int]] = mapped_column(Integer)
+    current_evidence_text: Mapped[Optional[str]] = mapped_column(Text)
+    current_evidence_start: Mapped[Optional[int]] = mapped_column(Integer)
+    current_evidence_end: Mapped[Optional[int]] = mapped_column(Integer)
     validation_status: Mapped[str] = mapped_column(String(50), default="unvalidated", nullable=False, index=True)
     notice: Mapped[Notice] = relationship(back_populates="change_records")
 

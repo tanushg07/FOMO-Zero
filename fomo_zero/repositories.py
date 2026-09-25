@@ -8,6 +8,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
 from .ai.schemas import ExtractionOutput
+from .comparison import ComparisonResult
 from .models import ActionItem, AffectedGroup, ChangeRecord, Deadline, ExtractionRecord, Notice, UncertaintyRecord
 from .schemas import ActionItemCreate, AffectedGroupCreate, DeadlineCreate, NoticeCreate
 
@@ -144,3 +145,38 @@ def save_extraction_output(session: Session, notice_id: str, output: ExtractionO
     session.commit()
     session.refresh(record)
     return record
+
+
+def save_comparison_changes(session: Session, current_notice_id: str, result: ComparisonResult) -> list[ChangeRecord]:
+    """Replace persisted comparison changes for the current notice atomically."""
+    if result.validation_status != "validated":
+        raise ValueError("Only validated comparison results may be saved")
+    if session.get(Notice, current_notice_id) is None:
+        raise LookupError(f"Notice not found: {current_notice_id}")
+    comparison_id = result.comparison_id
+    session.execute(delete(ChangeRecord).where(ChangeRecord.notice_id == current_notice_id))
+    records = [
+        ChangeRecord(
+            notice_id=current_notice_id,
+            comparison_id=comparison_id,
+            field_name=change.field,
+            old_value=change.previous_value,
+            new_value=change.current_value,
+            change_type=change.change_type,
+            evidence_text=change.current_evidence_text or change.previous_evidence_text or "",
+            evidence_start=change.current_evidence_start,
+            evidence_end=change.current_evidence_end,
+            previous_evidence_text=change.previous_evidence_text,
+            previous_evidence_start=change.previous_evidence_start,
+            previous_evidence_end=change.previous_evidence_end,
+            current_evidence_text=change.current_evidence_text,
+            current_evidence_start=change.current_evidence_start,
+            current_evidence_end=change.current_evidence_end,
+            validation_status=change.validation_status,
+        )
+        for change in result.changes
+        if change.change_type != "unchanged"
+    ]
+    session.add_all(records)
+    session.commit()
+    return records
