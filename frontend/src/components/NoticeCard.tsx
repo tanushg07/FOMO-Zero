@@ -16,6 +16,9 @@ export const NoticeCard: React.FC<NoticeCardProps> = ({ notice }) => {
       <p className="text-sm text-zinc-400 line-clamp-3">
         {notice.core_update}
       </p>
+      {notice.validation_reason && notice.validation_status !== 'Verified' && (
+        <p className="text-xs text-amber-300/80 line-clamp-2">{notice.validation_reason}</p>
+      )}
       <div className="flex gap-4 mt-2 border-t border-zinc-800 pt-3">
         <div className="flex flex-col">
           <span className="text-[10px] font-mono text-zinc-500 uppercase">Actions</span>

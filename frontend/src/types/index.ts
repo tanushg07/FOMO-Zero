@@ -18,6 +18,7 @@ export interface NoticeResult {
   action_checklist: ActionItem[];
   consequence_if_missed: string;
   validation_status: "Verified" | "Needs Review" | "Blocked";
+  validation_reason: string | null;
   raw_evidence: string; // markdown chunk
   original_text: string;
 }

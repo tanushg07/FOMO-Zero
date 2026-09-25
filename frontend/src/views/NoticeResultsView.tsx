@@ -17,6 +17,12 @@ export const NoticeResultsView: React.FC<NoticeResultsViewProps> = ({ data }) =>
         <h1 className="font-sans text-2xl text-zinc-100">{data.title}</h1>
         <ValidationBadge status={data.validation_status} />
       </div>
+      {data.validation_reason && data.validation_status !== 'Verified' && (
+        <div className="border border-amber-500/40 bg-amber-950/20 p-4 text-sm text-amber-200">
+          <strong className="font-mono text-xs uppercase">Why review is required</strong>
+          <p className="mt-2 whitespace-pre-wrap">{data.validation_reason}</p>
+        </div>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-6 flex-grow overflow-hidden">
         {/* Left Column 60% */}
