@@ -13,8 +13,10 @@ from .api_schemas import IngestionErrorResponse, NoticeListResponse, NoticeRespo
 from .db import create_engine, create_session_factory, init_db
 from .ingestion import IngestionError, extract_notice_text, validate_size
 from .models import Notice
-from .repositories import create_notice, get_notice, list_notices
+from .repositories import create_notice, get_notice, list_notices, set_notice_processing_status
 from .schemas import NoticeCreate
+from .ai.extractor import ExtractionError, NoticeExtractor
+from .ai.provider import build_provider
 
 logger = logging.getLogger(__name__)
 DEFAULT_MAX_INPUT_BYTES = 10 * 1024 * 1024
@@ -117,6 +119,24 @@ def create_app(database_url: str = "sqlite:///fomo_zero.db", max_input_bytes: in
 
     @app.get("/api/notices/{notice_id}", response_model=NoticeResponse)
     def get_notice_endpoint(notice_id: str, session: Session = Depends(get_session)):
+        notice = get_notice(session, notice_id)
+        if notice is None:
+            raise HTTPException(status_code=404, detail="Notice not found")
+        return NoticeResponse.from_model(notice)
+
+    @app.post("/api/notices/{notice_id}/extract", response_model=NoticeResponse)
+    def extract_notice_endpoint(notice_id: str, session: Session = Depends(get_session)):
+        if session.get(Notice, notice_id) is None:
+            raise HTTPException(status_code=404, detail="Notice not found")
+        try:
+            NoticeExtractor(build_provider()).extract(session, notice_id)
+        except ExtractionError:
+            # The extractor has already recorded the safe failed status.
+            logger.warning("notice extraction failed for %s", notice_id)
+        except Exception as exc:  # noqa: BLE001 - API must not expose provider details
+            session.rollback()
+            set_notice_processing_status(session, notice_id, "needs_review", validation_status="review_required")
+            logger.warning("unexpected notice extraction error: %s", type(exc).__name__)
         notice = get_notice(session, notice_id)
         if notice is None:
             raise HTTPException(status_code=404, detail="Notice not found")

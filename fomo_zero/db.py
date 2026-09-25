@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from pathlib import Path
 
-from sqlalchemy import Engine, create_engine as sqlalchemy_create_engine, event
+from sqlalchemy import Engine, create_engine as sqlalchemy_create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 
@@ -34,3 +34,33 @@ def init_db(engine: Engine) -> None:
     if engine.url.database and engine.url.database != ":memory:":
         Path(engine.url.database).parent.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(engine)
+    _migrate_sqlite_schema(engine)
+
+
+def _migrate_sqlite_schema(engine: Engine) -> None:
+    """Apply additive migrations for existing local SQLite databases.
+
+    The project does not yet use Alembic, so ``create_all`` alone cannot add
+    columns to a database created by an earlier version.
+    """
+    if engine.dialect.name != "sqlite":
+        return
+    additions = {
+        "change_records": {
+            "previous_evidence_text": "TEXT",
+            "previous_evidence_start": "INTEGER",
+            "previous_evidence_end": "INTEGER",
+            "current_evidence_text": "TEXT",
+            "current_evidence_start": "INTEGER",
+            "current_evidence_end": "INTEGER",
+        },
+    }
+    inspector = inspect(engine)
+    with engine.begin() as connection:
+        for table, columns in additions.items():
+            if table not in inspector.get_table_names():
+                continue
+            existing = {column["name"] for column in inspector.get_columns(table)}
+            for column, column_type in columns.items():
+                if column not in existing:
+                    connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}"))

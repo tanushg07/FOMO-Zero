@@ -202,6 +202,17 @@ class NoticeWorker:
                 return ProcessResult(label, notice_id, "blocked", "extraction_failed")
             except LookupError:
                 return ProcessResult(label, None, "failed", "notice disappeared")
+            except Exception as exc:  # noqa: BLE001 - the hook must never crash
+                # Any unexpected provider/runtime error (e.g. a model-not-found
+                # API error) must not crash the hook or auto-publish anything.
+                # Hold the notice for manual review and log the error TYPE only,
+                # never the message body, so no secret or payload can leak.
+                self._mark_needs_review(notice_id)
+                logger.warning(
+                    "unexpected error for notice %s sha=%s: %s",
+                    notice_id, text_hash[:12], type(exc).__name__,
+                )
+                return ProcessResult(label, notice_id, "needs_review", f"provider_error:{type(exc).__name__}")
 
         status_map = {"validated": "complete", "review_required": "needs_review", "blocked": "blocked"}
         status = status_map.get(output.validation_status, "needs_review")
@@ -211,6 +222,15 @@ class NoticeWorker:
             notice_id, text_hash[:12], status, review_flags,
         )
         return ProcessResult(label, notice_id, status, f"{review_flags} review flag(s)")
+
+    def _mark_needs_review(self, notice_id: str) -> None:
+        from .repositories import set_notice_processing_status
+
+        try:
+            with self._session_factory() as session:
+                set_notice_processing_status(session, notice_id, "needs_review", validation_status="review_required")
+        except Exception:  # noqa: BLE001 - never let cleanup crash the hook
+            logger.warning("could not mark notice %s for review", notice_id)
 
     # -- batch / folder -----------------------------------------------------
     def process_inbox(self, inbox: Path) -> list[ProcessResult]:
