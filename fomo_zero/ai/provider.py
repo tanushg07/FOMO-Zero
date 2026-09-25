@@ -61,3 +61,69 @@ class GroqProvider:
         )
         content = response.choices[0].message.content or ""
         return ProviderResponse(content, self.provider_name, self.model_name)
+
+
+class NullProvider:
+    """Safe fallback provider used when no API key is configured.
+
+    It never contacts a network service and never has access to a secret. It
+    returns a minimal, deliberately unaligned extraction so the Guardian routes
+    the notice to review_required instead of publishing anything as verified.
+    This keeps automation running (and manual review available) even without a
+    configured model, and guarantees no unsupported claim is auto-published.
+    """
+
+    provider_name = "null"
+    model_name = None
+
+    def complete(self, prompt: str) -> ProviderResponse:
+        import json
+
+        payload = {
+            "summary": {
+                "claim_id": "summary-null",
+                "text": "Automated extraction is unavailable; manual review is required.",
+                # Intentionally no evidence_text -> Guardian will require review.
+                "evidence_text": None,
+            },
+            "changes": [],
+            "affected_groups": [],
+            "deadlines": [],
+            "actions": [],
+            "conditions": [],
+            "uncertainties": [
+                {
+                    "claim_id": "uncertainty-null",
+                    "category": "provider_unavailable",
+                    "description": "No language model was configured, so no facts were extracted.",
+                    "severity": "high",
+                }
+            ],
+            "metadata": {
+                "provider_name": self.provider_name,
+                "model_name": None,
+                # The engine overwrites metadata with authoritative values.
+                "extracted_at": "1970-01-01T00:00:00+00:00",
+                "source_text_sha256": "pending",
+                "attempt_count": 1,
+            },
+            "validation_status": "review_required",
+        }
+        return ProviderResponse(json.dumps(payload), self.provider_name, self.model_name)
+
+
+def build_provider() -> LLMProvider:
+    """Return a configured provider, or a safe fallback.
+
+    Never raises on a missing key and never logs the key. If ``GROQ_API_KEY`` is
+    absent or a placeholder, returns :class:`NullProvider` so processing degrades
+    gracefully to review_required rather than failing or leaking configuration.
+    """
+    load_dotenv()
+    key = os.getenv("GROQ_API_KEY")
+    if not key or key == "PASTE_YOUR_GROQ_API_KEY_HERE":
+        return NullProvider()
+    try:
+        return GroqProvider()
+    except (ValueError, ImportError):
+        return NullProvider()

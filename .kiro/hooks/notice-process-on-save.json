@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Process notice on inbox file save",
+      "trigger": "PostFileSave",
+      "description": "When a supported notice file in notices_inbox/ is saved or modified by the agent, run the local worker. Idempotency (content hash + status guard + file lock) prevents duplicate processing.",
+      "matcher": "notices_inbox[\\\\/].*\\.(txt|pdf|docx)$",
+      "action": {
+        "type": "command",
+        "command": "python -m fomo_zero.worker --inbox notices_inbox",
+        "timeout": 120
+      }
+    }
+  ]
+}

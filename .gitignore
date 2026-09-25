@@ -38,3 +38,8 @@ Thumbs.db
 # Database
 *.sqlite3
 *.db
+
+# Notice worker artifacts (keep the inbox folder, ignore processed/failed output and locks)
+notices_inbox/processed/
+notices_inbox/failed/
+notices_inbox/*.lock

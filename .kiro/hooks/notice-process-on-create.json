@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Process notice on inbox file create",
+      "trigger": "PostFileCreate",
+      "description": "When a supported notice file is created in notices_inbox/, run the local worker to extract, align evidence, validate with the Guardian, save to SQLite, and flag review-required items. Drains the inbox so files are processed once.",
+      "matcher": "notices_inbox[\\\\/].*\\.(txt|pdf|docx)$",
+      "action": {
+        "type": "command",
+        "command": "python -m fomo_zero.worker --inbox notices_inbox",
+        "timeout": 120
+      }
+    }
+  ]
+}

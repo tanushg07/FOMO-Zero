@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Drain notice inbox backlog on session start",
+      "trigger": "SessionStart",
+      "description": "On session start, process any notice files left in notices_inbox/ (backlog added while no session was running, or added manually where file hooks do not fire). Idempotent and bounded; exits after draining.",
+      "action": {
+        "type": "command",
+        "command": "python -m fomo_zero.worker --inbox notices_inbox",
+        "timeout": 120
+      }
+    }
+  ]
+}
