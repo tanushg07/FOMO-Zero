@@ -323,7 +323,7 @@ class Guardian:
         for action in output.actions:
             status = (action.mandatory_status or "").strip().lower()
             is_marked_mandatory = action.action_type == "mandatory"
-            status_supports_mandatory = any(token in status for token in _MANDATORY_STATUS_TOKENS)
+            status_supports_mandatory = _status_supports_mandatory(status)
 
             if is_marked_mandatory and not status_supports_mandatory:
                 # An action is presented as mandatory but nothing supports the
@@ -479,3 +479,11 @@ def _text_mentions_time(text: str) -> bool:
 
 def _text_is_advisory(text: str) -> bool:
     return bool(re.search(r"\b(may|might|optional|encouraged|recommended|advised|can|could|if\s+you\s+wish|at\s+your\s+discretion)\b", text, re.IGNORECASE))
+
+
+def _status_supports_mandatory(status: str) -> bool:
+    """Match mandatory statuses exactly; ``not_required`` is not mandatory."""
+    normalized = status.strip().lower().replace("-", "_")
+    if normalized in {"not_required", "not_mandatory", "optional", "no", "false", "unclear"}:
+        return False
+    return normalized in _MANDATORY_STATUS_TOKENS

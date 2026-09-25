@@ -42,6 +42,7 @@ class NoticeResponse(BaseModel):
     updated_at: datetime
     processing_status: str
     validation_status: str
+    validation_reason: str | None = None
     target_audience: str = ""
     core_update: str = ""
     critical_dates: list[CriticalDateResponse] = Field(default_factory=list)
@@ -89,6 +90,7 @@ class NoticeResponse(BaseModel):
             updated_at=notice.updated_at,
             processing_status=notice.processing_status,
             validation_status=mapped_vs,
+            validation_reason=notice.validation_reason,
             target_audience=target_audience,
             core_update=core_update,
             critical_dates=critical_dates,

@@ -31,6 +31,7 @@ class Notice(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
     processing_status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False, index=True)
     validation_status: Mapped[str] = mapped_column(String(50), default="unvalidated", nullable=False, index=True)
+    validation_reason: Mapped[Optional[str]] = mapped_column(Text)
 
     affected_groups: Mapped[list[AffectedGroup]] = relationship(back_populates="notice", cascade="all, delete-orphan")
     action_items: Mapped[list[ActionItem]] = relationship(back_populates="notice", cascade="all, delete-orphan")

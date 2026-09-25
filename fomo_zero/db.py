@@ -46,6 +46,7 @@ def _migrate_sqlite_schema(engine: Engine) -> None:
     if engine.dialect.name != "sqlite":
         return
     additions = {
+        "notices": {"validation_reason": "TEXT"},
         "change_records": {
             "previous_evidence_text": "TEXT",
             "previous_evidence_start": "INTEGER",

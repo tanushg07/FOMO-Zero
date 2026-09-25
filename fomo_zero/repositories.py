@@ -90,13 +90,15 @@ def reset_extraction_draft(session: Session, notice_id: str) -> None:
     session.commit()
 
 
-def set_notice_processing_status(session: Session, notice_id: str, processing_status: str, *, validation_status: str | None = None) -> None:
+def set_notice_processing_status(session: Session, notice_id: str, processing_status: str, *, validation_status: str | None = None, validation_reason: str | None = None) -> None:
     notice = session.get(Notice, notice_id)
     if notice is None:
         raise LookupError(f"Notice not found: {notice_id}")
     notice.processing_status = processing_status
     if validation_status is not None:
         notice.validation_status = validation_status
+    if validation_reason is not None or processing_status == "complete":
+        notice.validation_reason = validation_reason
     session.commit()
 
 

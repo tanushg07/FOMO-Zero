@@ -39,7 +39,10 @@ class NoticeExtractor:
         try:
             response, output, attempt_count = self._request(prompt)
         except ExtractionError as exc:
-            set_notice_processing_status(session, notice_id, "failed", validation_status="blocked")
+            set_notice_processing_status(
+                session, notice_id, "failed", validation_status="blocked",
+                validation_reason="Provider extraction failed: invalid or unavailable model output.",
+            )
             raise exc
 
         output.metadata = ExtractionMetadata(
@@ -73,10 +76,13 @@ class NoticeExtractor:
         if pipeline_status != "validated":
             # Anything not fully verified is held for review; nothing ambiguous,
             # incomplete, or blocked is published as a verified action.
-            set_notice_processing_status(session, notice_id, "needs_review", validation_status=pipeline_status)
+            set_notice_processing_status(
+                session, notice_id, "needs_review", validation_status=pipeline_status,
+                validation_reason="; ".join(report.problems()) or "Guardian requires manual review.",
+            )
             return output
         save_extraction_output(session, notice_id, output)
-        set_notice_processing_status(session, notice_id, "complete", validation_status="validated")
+        set_notice_processing_status(session, notice_id, "complete", validation_status="validated", validation_reason=None)
         return output
 
     def _request(self, prompt: str) -> tuple[ProviderResponse, ExtractionOutput, int]:
@@ -151,6 +157,8 @@ def _canonicalize_provider_payload(payload: dict) -> None:
         if isinstance(group, dict):
             if "value" not in group and isinstance(group.get("group"), str):
                 group["value"] = group["group"]
+            if "value" not in group and isinstance(group.get("group_name"), str):
+                group["value"] = group["group_name"]
             if "value" not in group and isinstance(group.get("description"), str):
                 group["value"] = group["description"]
             if "group_type" not in group:
